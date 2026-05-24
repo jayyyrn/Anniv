@@ -416,14 +416,27 @@ export default function FinalReward() {
 
                 {/* Player screen wrapper */}
                 <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-rose-gold/30 shadow-2xl bg-black">
-                  <iframe
-                    src={videoUrl}
-                    title="Our Anniversary Reward Video"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                    className="absolute inset-0 w-full h-full"
-                  />
+                  {videoUrl.startsWith('data:video') || 
+                   videoUrl.includes('.mp4') || 
+                   videoUrl.includes('.mov') || 
+                   videoUrl.includes('.webm') || 
+                   videoUrl.startsWith('blob:') ? (
+                    <video
+                      src={videoUrl}
+                      controls
+                      playsInline
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <iframe
+                      src={videoUrl}
+                      title="Our Anniversary Reward Video"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      className="absolute inset-0 w-full h-full"
+                    />
+                  )}
                 </div>
               </div>
             )}

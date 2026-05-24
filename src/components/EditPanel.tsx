@@ -9,6 +9,49 @@ import {
   Mic, Volume2, Pause, Play, AlertCircle
 } from 'lucide-react';
 
+// Helper for local image compression to keep base64 payloads extremely compressed (<30KB)
+const compressImage = (file: File, maxW = 500, maxH = 500, quality = 0.6): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxW) {
+            height = Math.round((height * maxW) / width);
+            width = maxW;
+          }
+        } else {
+          if (height > maxH) {
+            width = Math.round((width * maxH) / height);
+            height = maxH;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(event.target?.result as string);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressedBase64);
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+};
+
 export default function EditPanel() {
   const { config, updateLocalConfig, saveAndGetShareUrl, isCustomized, gameId, loadedFromUrl } = useGameConfig();
   const [isOpen, setIsOpen] = useState(false);
@@ -20,6 +63,9 @@ export default function EditPanel() {
   const [shareConfig, setShareConfig] = useState<{ show: boolean; url: string; method: 'firestore' | 'url-code' } | null>(null);
   const [copied, setCopied] = useState(false);
   const [showHelpDocs, setShowHelpDocs] = useState(false);
+
+  // Audio & Video upload states
+  const [videoError, setVideoError] = useState<string | null>(null);
 
   // Audio Note Recording/Management states
   const [recording, setRecording] = useState(false);
@@ -53,6 +99,42 @@ export default function EditPanel() {
     const updatedPhotos = [...draft.photos];
     updatedPhotos[index] = { ...updatedPhotos[index], [field]: value };
     handleFieldChange('photos', updatedPhotos);
+  };
+
+  const handlePhotoUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const compressed = await compressImage(file, 600, 600, 0.7);
+      handlePhotoChange(index, 'src', compressed);
+    } catch (err) {
+      console.error("Error compressing image: ", err);
+    }
+  };
+
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setVideoError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Limit to 1.5MB to prevent Firestore limits, warn if exceeded
+    if (file.size > 1.5 * 1024 * 1024) {
+      setVideoError("Video file size exceeds 1.5MB. Keep uploads small/compressed for seamless loading, or use YouTube embeds.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onloadend = () => {
+      const base64data = reader.result as string;
+      handleFieldChange('videoUrl', base64data);
+      setVideoError(null);
+    };
+    reader.onerror = (err) => {
+      console.error(err);
+      setVideoError("Failed to read video file.");
+    };
   };
 
   const handleQuizChange = (index: number, field: keyof QuizQuestion, value: any) => {
@@ -465,31 +547,57 @@ export default function EditPanel() {
                     <div className="space-y-4">
                       {draft.photos.map((photo, index) => (
                         <div key={index} className="bg-black/20 border border-rose-gold/15 rounded-2xl p-4 space-y-3">
-                          <div className="flex items-center gap-3">
-                            <span className="w-6 h-6 rounded-full bg-rose-gold/20 text-rose-gold flex items-center justify-center text-xs font-semibold">
-                              {index + 1}
-                            </span>
-                            <p className="font-serif text-sm text-gold-accent">Memory Photo Card Pair {index + 1}</p>
+                          <div className="flex items-center justify-between pointer-events-none select-none">
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-full bg-rose-gold/20 text-rose-gold flex items-center justify-center text-xs font-semibold">
+                                {index + 1}
+                              </span>
+                              <p className="font-serif text-sm text-gold-accent">Memory Photo Card Pair {index + 1}</p>
+                            </div>
+                            {photo.src && (
+                              <div className="w-9 h-9 rounded-lg border border-rose-gold/30 bg-black/40 overflow-hidden shrink-0">
+                                <img
+                                  src={photo.src}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                            )}
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="flex flex-col justify-end">
+                              <label className="block text-[10px] uppercase tracking-wider text-soft-white/40 mb-1">Upload Photo</label>
+                              <label className="bg-navy hover:bg-black/20 border border-rose-gold/30 text-rose-gold text-[11px] font-bold px-3 py-2 rounded-lg transition-all cursor-pointer text-center block select-none">
+                                Choose Image File
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handlePhotoUpload(index, e)}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+
                             <div>
-                              <label className="block text-[10px] uppercase tracking-wider text-soft-white/40 mb-1">Image URL</label>
+                              <label className="block text-[10px] uppercase tracking-wider text-soft-white/40 mb-1">Or Paste Image URL</label>
                               <input
                                 type="text"
-                                value={photo.src}
+                                value={photo.src.startsWith('data:image') ? '(Local Image Uploaded)' : photo.src}
                                 onChange={(e) => handlePhotoChange(index, 'src', e.target.value)}
-                                className="w-full bg-black/40 border border-rose-gold/15 focus:border-rose-gold/50 rounded-lg px-3 py-2 text-xs text-soft-white focus:outline-none focus:ring-1 focus:ring-rose-gold/5"
-                                placeholder="https://images.unsplash.com/... or postimages Link"
+                                className="w-full bg-black/40 border border-rose-gold/15 focus:border-rose-gold/50 rounded-lg px-2.5 py-2 text-xs text-soft-white focus:outline-none placeholder-soft-white/20"
+                                placeholder="https://images.unsplash.com/... or link"
                               />
                             </div>
+
                             <div>
                               <label className="block text-[10px] uppercase tracking-wider text-soft-white/40 mb-1">Affectionate Caption</label>
                               <input
                                 type="text"
                                 value={photo.caption}
                                 onChange={(e) => handlePhotoChange(index, 'caption', e.target.value)}
-                                className="w-full bg-black/40 border border-rose-gold/15 focus:border-rose-gold/50 rounded-lg px-3 py-2 text-xs text-soft-white focus:outline-none focus:ring-1 focus:ring-rose-gold/5"
+                                className="w-full bg-black/40 border border-rose-gold/15 focus:border-rose-gold/50 rounded-lg px-2.5 py-2 text-xs text-soft-white focus:outline-none focus:ring-1 focus:ring-rose-gold/5 placeholder-soft-white/20"
                                 placeholder="Enter a beautiful memory caption..."
                               />
                             </div>
@@ -587,18 +695,47 @@ export default function EditPanel() {
                   <div className="space-y-4">
                     <h3 className="font-serif text-lg text-rose-gold">Level 3: Sliding Tile Puzzle Backdrop</h3>
                     <p className="text-xs text-soft-white/60">
-                      We break this photo into a 3x3 grid for the active slider match. Let's use a gorgeous shared picture!
+                      We break this photo into a 3x3 grid for the active slider match. Let's upload a gorgeous shared picture from your laptop!
                     </p>
 
-                    <div>
-                      <label className="block text-xs uppercase tracking-widest text-soft-white/60 mb-1.5 font-sans">Sliding Photo URL</label>
-                      <input
-                        type="text"
-                        value={draft.slidingPuzzlePhoto}
-                        onChange={(e) => handleFieldChange('slidingPuzzlePhoto', e.target.value)}
-                        className="w-full bg-black/30 border border-rose-gold/20 focus:border-rose-gold/60 rounded-xl px-4 py-3 text-sm text-soft-white focus:outline-none transition-all"
-                        placeholder="https://images.unsplash.com/... or hosting link"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Upload block */}
+                      <div className="bg-black/30 border border-rose-gold/15 rounded-2xl p-4 space-y-2">
+                        <label className="block text-xs uppercase tracking-widest text-gold-accent font-semibold mb-1">Upload Backdrop Image</label>
+                        <p className="text-[10px] text-soft-white/50 mb-2">Select a photo (JPG, PNG, WEBP). Auto-compressed for rapid shared loads.</p>
+                        <label className="bg-navy hover:bg-black/20 border border-rose-gold/30 text-rose-gold text-xs font-bold px-4 py-3 rounded-xl transition-all cursor-pointer text-center block select-none">
+                          Choose Image File
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                try {
+                                  const compressed = await compressImage(file, 600, 600, 0.7);
+                                  handleFieldChange('slidingPuzzlePhoto', compressed);
+                                } catch (err) {
+                                  console.error("Error compressing sliding puzzle image:", err);
+                                }
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {/* URL input block */}
+                      <div className="bg-black/30 border border-rose-gold/15 rounded-2xl p-4 space-y-2">
+                        <label className="block text-xs uppercase tracking-widest text-gold-accent font-semibold mb-1">Or Paste Photo URL</label>
+                        <p className="text-[10px] text-soft-white/50 mb-3">Input an external link directly.</p>
+                        <input
+                          type="text"
+                          value={draft.slidingPuzzlePhoto.startsWith('data:image') ? '(Local Image Uploaded)' : draft.slidingPuzzlePhoto}
+                          onChange={(e) => handleFieldChange('slidingPuzzlePhoto', e.target.value)}
+                          className="w-full bg-black/40 border border-rose-gold/15 focus:border-rose-gold/50 rounded-xl px-4 py-2.5 text-xs text-soft-white focus:outline-none"
+                          placeholder="https://images.unsplash.com/... or hosting link"
+                        />
+                      </div>
                     </div>
 
                     <div className="flex justify-center border border-rose-gold/10 bg-black/30 rounded-2xl p-4 mt-4">
@@ -616,10 +753,10 @@ export default function EditPanel() {
                         ) : (
                           <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
                             <Image className="w-8 h-8 text-rose-gold/40 mb-2" />
-                            <span className="text-xs text-soft-white/50">Enter a valid URL above to preview the puzzle scene</span>
+                            <span className="text-xs text-soft-white/50">Enter a valid URL or upload a file to preview</span>
                           </div>
                         )}
-                        <div className="absolute top-2 left-2 px-2.5 py-1 bg-black/60 rounded text-[10px] text-gold-accent font-serif tracking-widest uppercase">
+                        <div className="absolute top-2 left-2 px-2.5 py-1 bg-black/60 rounded text-[10px] text-gold-accent font-serif tracking-widest uppercase pointer-events-none select-none">
                           Puzzle Preview
                         </div>
                       </div>
@@ -686,24 +823,78 @@ export default function EditPanel() {
                   <div className="space-y-4">
                     <h3 className="font-serif text-lg text-rose-gold">Surprise Video</h3>
                     <p className="text-xs text-soft-white/60">
-                      Place a beautiful YouTube embed link, Google Drive link, or video URL shown during the culmination!
+                      Upload a romantic short video clip directly from your laptop, or paste an external YouTube / Google Drive / direct MP4 link!
                     </p>
 
-                    <div>
-                      <label className="block text-xs uppercase tracking-widest text-soft-white/60 mb-1.5 font-sans">Video Embed URL</label>
-                      <input
-                        type="text"
-                        value={draft.videoUrl}
-                        onChange={(e) => handleFieldChange('videoUrl', e.target.value)}
-                        className="w-full bg-black/30 border border-rose-gold/20 focus:border-rose-gold/60 rounded-xl px-4 py-3 text-sm text-soft-white focus:outline-none transition-all"
-                        placeholder="e.g. https://www.youtube.com/embed/5H-S78g7_dI"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Video upload button */}
+                      <div className="bg-black/30 border border-rose-gold/15 rounded-2xl p-4 space-y-3">
+                        <label className="block text-xs uppercase tracking-widest text-[#cfaf88] font-bold">Upload Local Video</label>
+                        <p className="text-[10px] text-soft-white/40 mb-2">Upload any standard short video (e.g. MP4, MOV). Recommended duration &lt; 15s.</p>
+                        
+                        <label className="bg-rose-gold hover:bg-gold-accent text-navy text-xs font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer inline-flex items-center gap-1.5 select-none w-full justify-center">
+                          <Video className="w-4 h-4" />
+                          Choose Video File
+                          <input
+                            type="file"
+                            accept="video/*"
+                            onChange={handleVideoUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {/* Video Embed Input */}
+                      <div className="bg-black/30 border border-rose-gold/15 rounded-2xl p-4 space-y-3">
+                        <label className="block text-xs uppercase tracking-widest text-[#cfaf88] font-bold">Or External Video Link</label>
+                        <p className="text-[10px] text-soft-white/40 mb-2">YouTube embed tag URL or public mp4 URL.</p>
+                        
+                        <input
+                          type="text"
+                          value={draft.videoUrl.startsWith('data:video') ? '(Local Video Loaded)' : draft.videoUrl}
+                          onChange={(e) => {
+                            handleFieldChange('videoUrl', e.target.value);
+                            setVideoError(null);
+                          }}
+                          className="w-full bg-black/40 border border-rose-gold/15 focus:border-rose-gold/50 rounded-xl px-3 py-2.5 text-xs text-soft-white focus:outline-none"
+                          placeholder="e.g. https://www.youtube.com/embed/5H-S78g7_dI"
+                        />
+                      </div>
                     </div>
+
+                    {draft.videoUrl && (
+                      <div className="bg-rose-gold/10 border border-rose-gold/30 rounded-2xl p-4 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] tracking-widest text-rose-gold uppercase font-bold flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 animate-pulse" /> Active Video Choice Locked
+                          </span>
+                          <button
+                            onClick={() => {
+                              handleFieldChange('videoUrl', '');
+                              setVideoError(null);
+                            }}
+                            className="text-[10px] text-red-400 hover:text-red-300 transition-colors uppercase font-mono font-bold flex items-center gap-0.5 cursor-pointer animate-[pulse_2s_infinite]"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Clear Video
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-soft-white/50 truncate">
+                          {draft.videoUrl.startsWith('data:video') ? `Stored Data: Local Video Asset Code (Approx ${Math.round(draft.videoUrl.length / 1024)} KB)` : `Stored Link: ${draft.videoUrl}`}
+                        </p>
+                      </div>
+                    )}
+
+                    {videoError && (
+                      <div className="p-3 bg-red-950/30 border border-red-500/20 text-red-300 rounded-xl text-xs flex gap-2 items-center leading-relaxed">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{videoError}</span>
+                      </div>
+                    )}
 
                     <div className="bg-black/20 border border-rose-gold/15 rounded-2xl p-4 text-xs text-soft-white/60 space-y-1.5">
                       <p className="font-semibold text-gold-accent">💡 Embed Tips:</p>
                       <p>• YouTube: Copy a video, click Share, select <strong>Embed</strong>, and grab the source link inside the iframe source string (<code className="bg-navy px-1 rounded text-red-300">https://www.youtube.com/embed/...</code>).</p>
-                      <p>• Or keep the default calming embers ambiance for an immersive atmosphere!</p>
+                      <p>• Local Files: Keep your uploads under 1.5MB to ensure instantly fast cloud-saving/syncing speeds for your partner's device!</p>
                     </div>
                   </div>
                 )}
