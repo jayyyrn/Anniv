@@ -238,9 +238,29 @@ export default function BackgroundElements() {
     }
   };
 
-  // Clean up synthesizer on unmount
+  // Auto-start romantic music on very first user interaction (click or tap)
   useEffect(() => {
+    let played = false;
+    const startAudioOnGesture = () => {
+      if (played) return;
+      played = true;
+      setIsMuted(false);
+      try {
+        playLullabyTheme();
+      } catch (err) {
+        console.error("Synthesizer auto-start failed: ", err);
+      }
+      
+      document.removeEventListener('click', startAudioOnGesture);
+      document.removeEventListener('touchstart', startAudioOnGesture);
+    };
+
+    document.addEventListener('click', startAudioOnGesture);
+    document.addEventListener('touchstart', startAudioOnGesture);
+
     return () => {
+      document.removeEventListener('click', startAudioOnGesture);
+      document.removeEventListener('touchstart', startAudioOnGesture);
       if (synthIntervalRef.current) {
         clearInterval(synthIntervalRef.current);
       }
