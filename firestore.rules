@@ -25,7 +25,7 @@ service cloud.firestore {
         && game.coupleNames is string && game.coupleNames.size() <= 200
         && game.anniversaryDate is string && game.anniversaryDate.size() <= 100
         && game.photos is list && game.photos.size() <= 20
-        && game.slidingPuzzlePhoto is string && game.slidingPuzzlePhoto.size() <= 500
+        && game.slidingPuzzlePhoto is string && game.slidingPuzzlePhoto.size() <= 2000000
         && game.letters is list && game.letters.size() <= 20
         && game.quizQuestions is list && game.quizQuestions.size() <= 20;
     }

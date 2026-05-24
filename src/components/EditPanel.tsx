@@ -1115,6 +1115,22 @@ export default function EditPanel() {
                 }
               </p>
 
+              {shareConfig.method === 'url-code' && (
+                <div className="bg-amber-950/20 border border-amber-500/20 text-amber-200/90 text-left rounded-2xl p-4 text-xs max-w-sm mx-auto mb-6 space-y-2 leading-relaxed">
+                  <p className="font-semibold text-amber-400 flex items-center gap-1.5 font-serif uppercase tracking-wider">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" /> Why is this link so long?
+                  </p>
+                  <p>
+                    Because you uploaded custom photo files or voice notes, those media files are converted into plain text and saved <strong>inside the link itself</strong>. Standard chat apps (Messenger, WhatsApp, SMS) and browsers have strict URL length limits and may cut or block links this long, causing a blank white screen or error!
+                  </p>
+                  <p className="font-semibold text-soft-white/95">How to solve this:</p>
+                  <ul className="list-disc pl-4 space-y-1 text-soft-white/80">
+                    <li><strong>Option A (Best)</strong>: Connect database storage so it saves securely as a short link (e.g. <code className="bg-navy px-1 py-0.5 rounded text-rose-gold font-mono">?gameId=...</code>).</li>
+                    <li><strong>Option B</strong>: Instead of uploading files, copy-paste plain web URLs of images from a free hoster like <code className="bg-navy px-1 py-0.5 rounded text-rose-gold font-mono">postimages.org</code>. This keeps the link extremely small and easy to send!</li>
+                  </ul>
+                </div>
+              )}
+
               {/* Copyable Action Zone */}
               <div className="bg-black/40 border border-rose-gold/20 rounded-2xl p-3 flex items-center justify-between gap-2 max-w-sm mx-auto mb-8 relative">
                 <input
