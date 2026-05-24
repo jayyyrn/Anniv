@@ -1,0 +1,6 @@
+{
+  "name": "Romantic Anniversary Game",
+  "description": "A beautiful, interactive multi-level anniversary web game featuring a Memory Matching puzzle, a Love Quiz, a Sliding puzzle, and a customizable finale with love letters, a couple's photo gallery, and background music.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

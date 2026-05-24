@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 64 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Game entity validator to defend against system bloating issues
+    function isValidGame(game) {
+      return game.playerName is string && game.playerName.size() <= 100
+        && game.coupleNames is string && game.coupleNames.size() <= 200
+        && game.anniversaryDate is string && game.anniversaryDate.size() <= 100
+        && game.photos is list && game.photos.size() <= 20
+        && game.slidingPuzzlePhoto is string && game.slidingPuzzlePhoto.size() <= 500
+        && game.letters is list && game.letters.size() <= 20
+        && game.quizQuestions is list && game.quizQuestions.size() <= 20;
+    }
+
+    // Games collection rules
+    match /games/{gameId} {
+      // Allow single-document read (get) to view the game, but forbid list-queries to prevent user scraping
+      allow get: if isValidId(gameId);
+      allow list: if false;
+
+      // Allow creation of a new personalized game
+      allow create: if isValidId(gameId) 
+        && isValidGame(incoming());
+
+      // Allow updates to personalize further
+      allow update: if isValidId(gameId)
+        && isValidGame(incoming());
+    }
+  }
+}

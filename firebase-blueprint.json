@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "GameConfigDoc": {
+      "title": "Anniversary Game Configuration",
+      "description": "Customized user settings for the romantic game including custom names, photos, letters, quiz questions, and videos.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique key to load this specific customized game"
+        },
+        "playerName": {
+          "type": "string",
+          "description": "The name of the partner playing the game"
+        },
+        "coupleNames": {
+          "type": "string",
+          "description": "Combined names of the couple"
+        },
+        "anniversaryDate": {
+          "type": "string",
+          "description": "Anniversary date displayed in headers/footers"
+        },
+        "photos": {
+          "type": "array",
+          "description": "List of custom photo assets and emotional captions"
+        },
+        "slidingPuzzlePhoto": {
+          "type": "string",
+          "description": "Image URL used for the Level 3 sliding puzzle"
+        },
+        "letters": {
+          "type": "array",
+          "description": "Handwritten love letters revealed inside the final envelope"
+        },
+        "videoUrl": {
+          "type": "string",
+          "description": "URL of the YouTube video shown in the final chapter"
+        },
+        "quizQuestions": {
+          "type": "array",
+          "description": "Custom love quiz questions for Level 2"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp indicating when this customized version was saved"
+        }
+      },
+      "required": ["playerName", "coupleNames", "anniversaryDate", "photos", "slidingPuzzlePhoto", "letters", "quizQuestions"]
+    }
+  },
+  "firestore": {
+    "games/{gameId}": {
+      "schema": "GameConfigDoc",
+      "description": "Shared customized configurations of the Anniversary Game"
+    }
+  }
+}
