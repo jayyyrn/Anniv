@@ -54,6 +54,14 @@ const compressImage = (file: File, maxW = 500, maxH = 500, quality = 0.6): Promi
 
 export default function EditPanel() {
   const { config, updateLocalConfig, saveAndGetShareUrl, isCustomized, gameId, loadedFromUrl } = useGameConfig();
+  
+  // Check if they came from a shared URL (either by gameId or code param)
+  const isUrlShared = typeof window !== 'undefined' && (
+    new URLSearchParams(window.location.search).has('gameId') || 
+    new URLSearchParams(window.location.search).has('code')
+  );
+  const allowEditing = !isUrlShared || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('edit'));
+
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'basics' | 'photos' | 'quiz' | 'puzzle' | 'letters' | 'video' | 'voice'>('basics');
   
@@ -343,23 +351,25 @@ export default function EditPanel() {
   return (
     <>
       {/* Absolute top-right toggle button to control customization workspace */}
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-        {isCustomized && (
-          <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-gold/20 border border-rose-gold/40 text-rose-gold text-xs font-serif italic tracking-wide">
-            <Sparkles className="w-3 h-3 text-rose-gold fill-current" />
-            Playing Custom Link
-          </span>
-        )}
-        <button
-          onClick={handleOpen}
-          id="toggle-editor-panel"
-          className="group relative flex items-center justify-center w-10 h-10 md:w-auto md:px-4 md:py-2.5 rounded-full bg-navy/80 hover:bg-black/40 border border-rose-gold/40 hover:border-rose-gold transition-all duration-300 backdrop-blur-md text-rose-gold font-sans font-semibold text-xs tracking-wider uppercase select-none cursor-pointer"
-          title="Customize & Edit Game Content"
-        >
-          <Settings className="w-4 h-4 md:mr-1.5 animate-[spin_12s_linear_infinite]" />
-          <span className="hidden md:inline">Edit Inside Game</span>
-        </button>
-      </div>
+      {allowEditing && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+          {isCustomized && (
+            <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-gold/20 border border-rose-gold/40 text-rose-gold text-xs font-serif italic tracking-wide">
+              <Sparkles className="w-3 h-3 text-rose-gold fill-current" />
+              Playing Custom Link
+            </span>
+          )}
+          <button
+            onClick={handleOpen}
+            id="toggle-editor-panel"
+            className="group relative flex items-center justify-center w-10 h-10 md:w-auto md:px-4 md:py-2.5 rounded-full bg-navy/80 hover:bg-black/40 border border-rose-gold/40 hover:border-rose-gold transition-all duration-300 backdrop-blur-md text-rose-gold font-sans font-semibold text-xs tracking-wider uppercase select-none cursor-pointer"
+            title="Customize & Edit Game Content"
+          >
+            <Settings className="w-4 h-4 md:mr-1.5 animate-[spin_12s_linear_infinite]" />
+            <span className="hidden md:inline">Edit Inside Game</span>
+          </button>
+        </div>
+      )}
 
       <AnimatePresence>
         {isOpen && (
@@ -1165,6 +1175,9 @@ export default function EditPanel() {
                   <p>1. Copy the URL above.</p>
                   <p>2. Send it to your partner in a sweet romantic text or card.</p>
                   <p>3. When they click the link, they will experience your personalized challenges, milestones, memories, and handwritten letters!</p>
+                  <p className="border-t border-rose-gold/10 pt-2 text-[11px] text-amber-300">
+                    🔒 <strong className="text-amber-200">Surprise Locked:</strong> Recipients cannot see or touch the "Edit Inside Game" panel. If you need to edit this specific shared link later, simply add <code className="bg-navy px-1 py-0.5 rounded text-rose-gold font-mono">&edit=true</code> to the end of the URL yourself!
+                  </p>
                 </div>
                 
                 <button
